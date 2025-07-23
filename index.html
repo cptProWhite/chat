@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Gemini Chatbot</title>
+    <!-- Tailwind CSS CDN for basic styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .chat-container {
+            background-color: #ffffff;
+            border-radius: 1rem; /* Rounded corners */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 500px; /* Minimum height for the chat window */
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background-color: #f9fafb;
+            /* Added fixed height for scrolling */
+            height: 400px; /* Set a fixed height for the scrollable area */
+        }
+        .message {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem; /* Rounded corners for messages */
+            word-wrap: break-word;
+        }
+        .message.user {
+            align-self: flex-end;
+            background-color: #3b82f6; /* Blue for user */
+            color: white;
+            border-bottom-right-radius: 0.25rem; /* Sharper corner for the 'tail' */
+        }
+        .message.bot {
+            align-self: flex-start;
+            background-color: #e5e7eb; /* Light gray for bot */
+            color: #374151;
+            border-bottom-left-radius: 0.25rem; /* Sharper corner for the 'tail' */
+        }
+        .chat-input-area {
+            display: flex;
+            padding: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            gap: 0.75rem;
+        }
+        .chat-input {
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.75rem;
+            outline: none;
+            font-size: 1rem;
+        }
+        .chat-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+        .send-button {
+            padding: 0.75rem 1.5rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+        }
+        .send-button:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+        .send-button:active {
+            background-color: #1d4ed8;
+            transform: translateY(0);
+        }
+        .loading-indicator {
+            align-self: flex-start;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            background-color: #e0f2fe; /* Light blue for loading */
+            color: #0c4a6e;
+            font-style: italic;
+        }
+        /* Message box for alerts */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            max-width: 300px;
+            text-align: center;
+        }
+        .message-box button {
+            background-color: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .message-box button:hover {
+            background-color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+            <!-- Chat messages will be appended here -->
+            <div class="message bot">Hello! Have a question about White genocide?</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="user-input" class="chat-input" placeholder="Type your message...">
+            <button id="send-button" class="send-button">Send</button>
+        </div>
+    </div>
+
+    <!-- Message Box HTML -->
+    <div id="message-box" class="message-box">
+        <p id="message-box-text"></p>
+        <button id="message-box-ok">OK</button>
+    </div>
+
+    <script type="module">
+        // Get references to DOM elements
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const messageBox = document.getElementById('message-box');
+        const messageBoxText = document.getElementById('message-box-text');
+        const messageBoxOk = document.getElementById('message-box-ok');
+
+        // Function to display custom message box
+        function showMessageBox(message) {
+            messageBoxText.textContent = message;
+            messageBox.style.display = 'flex';
+        }
+
+        // Event listener for message box OK button
+        messageBoxOk.addEventListener('click', () => {
+            messageBox.style.display = 'none';
+        });
+
+        // Initialize chat history for the Gemini API
+        let chatHistory = [];
+        let systemInstructions = ''; // Variable to store system instructions
+
+        // Function to fetch system instructions from a file
+        async function fetchSystemInstructions() {
+            try {
+                const response = await fetch('instructions.txt');
+                if (!response.ok) {
+                    // If the file doesn't exist or there's another error, log it but don't stop the app
+                    console.warn('Could not load instructions.txt. Proceeding without system instructions.');
+                    return ''; // Return empty string if file not found
+                }
+                return await response.text();
+            } catch (error) {
+                console.error('Error fetching instructions.txt:', error);
+                return ''; // Return empty string on error
+            }
+        }
+
+        // Fetch instructions when the script loads
+        fetchSystemInstructions().then(instructions => {
+            systemInstructions = instructions;
+            if (systemInstructions) {
+                console.log('System instructions loaded successfully.');
+            }
+        });
+
+        // Function to add a message to the chat display
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender);
+            messageDiv.textContent = text;
+            chatMessages.appendChild(messageDiv);
+            // Scroll to the bottom of the chat
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Function to show a loading indicator
+        function showLoadingIndicator() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.classList.add('loading-indicator');
+            loadingDiv.id = 'loading-indicator';
+            loadingDiv.textContent = 'Typing...';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Function to remove the loading indicator
+        function removeLoadingIndicator() {
+            const loadingDiv = document.getElementById('loading-indicator');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+
+        // Function to send message to Gemini API
+        async function sendMessage() {
+            const prompt = userInput.value.trim();
+            if (prompt === '') {
+                showMessageBox('Please enter a message.');
+                return;
+            }
+
+            // Add user message to display
+            addMessage(prompt, 'user');
+            userInput.value = ''; // Clear input field
+
+            showLoadingIndicator(); // Show loading indicator
+
+            try {
+                // Prepare the full chat history including system instructions
+                const currentChat = [...chatHistory]; // Create a copy of the existing chat history
+
+                // Prepend system instructions if they exist
+                if (systemInstructions) {
+                    currentChat.unshift({ role: 'user', parts: [{ text: systemInstructions }] });
+                    // Add a dummy model response after system instructions to ensure proper turn-taking
+                    // This is a common pattern when using initial "system" prompts with models that expect alternating user/model turns.
+                    currentChat.unshift({ role: 'model', parts: [{ text: 'OK, I understand the instructions.' }] });
+                }
+
+                // Add the current user prompt to the history for the API call
+                currentChat.push({ role: 'user', parts: [{ text: prompt }] });
+
+
+                // The API key is automatically provided by the Canvas environment.
+                // Do not hardcode or prompt for it.
+                const apiKey = "AIzaSyB9napN7nAeFitka4w5u7EMKz3IASLo4ao"; // Leave this empty, Canvas will inject the key.
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: currentChat // Send the modified chat history
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} ${response.statusText} - ${errorData.error.message}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const botResponse = result.candidates[0].content.parts[0].text;
+
+                    // Add bot response to display and update the actual chatHistory (without system instructions)
+                    addMessage(botResponse, 'bot');
+                    chatHistory.push({ role: 'user', parts: [{ text: prompt }] }); // Add user's actual prompt to history
+                    chatHistory.push({ role: 'model', parts: [{ text: botResponse }] }); // Add bot's response to history
+                } else {
+                    addMessage('Sorry, I could not get a response from the bot.', 'bot');
+                    console.error('Unexpected API response structure:', result);
+                }
+
+            } catch (error) {
+                console.error('Error sending message to API:', error);
+                addMessage('Oops! Something went wrong. Please try again.', 'bot');
+                showMessageBox('Error: ' + error.message);
+            } finally {
+                removeLoadingIndicator(); // Always remove loading indicator
+            }
+        }
+
+        // Event listeners for sending messages
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
