@@ -14,7 +14,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            min-height: 100vh; /* Ensure body takes full viewport height */
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
@@ -23,23 +23,22 @@
             background-color: #ffffff;
             border-radius: 1rem; /* Rounded corners */
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 600px;
+            width: 90%; /* Take 90% of viewport width */
+            max-width: 900px; /* Max width for larger screens */
+            height: 90vh; /* Take 90% of viewport height */
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            min-height: 500px; /* Minimum height for the chat window */
         }
         .chat-messages {
-            flex-grow: 1;
+            flex-grow: 1; /* Allow messages area to grow and fill available space */
             padding: 1.5rem;
-            overflow-y: auto;
+            overflow-y: auto; /* Enable vertical scrolling */
             display: flex;
             flex-direction: column;
             gap: 1rem;
             background-color: #f9fafb;
-            /* Added fixed height for scrolling */
-            height: 400px; /* Set a fixed height for the scrollable area */
+            /* Removed fixed height, flex-grow handles sizing */
         }
         .message {
             max-width: 80%;
@@ -64,6 +63,7 @@
             padding: 1.5rem;
             border-top: 1px solid #e5e7eb;
             gap: 0.75rem;
+            flex-shrink: 0; /* Prevent input area from shrinking */
         }
         .chat-input {
             flex-grow: 1;
@@ -140,7 +140,7 @@
     <div class="chat-container">
         <div class="chat-messages" id="chat-messages">
             <!-- Chat messages will be appended here -->
-            <div class="message bot">Hello! Have a question about White genocide?</div>
+            <div class="message bot">Hello! How can I help you today?</div>
         </div>
         <div class="chat-input-area">
             <input type="text" id="user-input" class="chat-input" placeholder="Type your message...">
@@ -260,8 +260,10 @@
                 currentChat.push({ role: 'user', parts: [{ text: prompt }] });
 
 
-                // The API key is automatically provided by the Canvas environment.
-                // Do not hardcode or prompt for it.
+                // IMPORTANT: Replace "YOUR_GOOGLE_AI_STUDIO_API_KEY" with your actual API key.
+                // You can get your API key from Google AI Studio: https://aistudio.google.com/app/apikey
+                // For production applications, it's recommended to use a backend server to proxy API calls
+                // to keep your API key secure and not exposed in client-side code.
                 const apiKey = "AIzaSyB9napN7nAeFitka4w5u7EMKz3IASLo4ao"; // Leave this empty, Canvas will inject the key.
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
